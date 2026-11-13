@@ -34,6 +34,22 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 	cp server/templ/*.templ /out/templ/; \
 	cp tinode-db/data.json tinode-db/*.jpg tinode-db/credentials.sh /out/
 
+# TinodeWeb (the web client served from ./static) is not part of this repository: upstream
+# releases bundle it into the release archive. Take it from there, as ./Dockerfile does.
+# The files are architecture independent, so the amd64 archive is fine for every platform.
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS webapp
+
+ARG WEBAPP_VERSION=0.25.3
+ARG TARGET_DB=mysql
+
+ADD https://github.com/tinode/chat/releases/download/v${WEBAPP_VERSION}/tinode-${TARGET_DB}.linux-amd64.tar.gz /tmp/tinode.tar.gz
+
+RUN set -eux; \
+	mkdir /tmp/release; \
+	tar -xzf /tmp/tinode.tar.gz -C /tmp/release; \
+	test -f /tmp/release/static/index.html; \
+	mv /tmp/release/static /static
+
 FROM alpine:3.22
 
 ARG VERSION=0.25
@@ -180,6 +196,9 @@ COPY docker/tinode/entrypoint.sh .
 
 # Tinode binaries and support files built from source in the builder stage.
 COPY --from=builder /out/ .
+
+# Web client. The server exits if the static content directory (--static_data) is missing.
+COPY --from=webapp /static ./static
 
 # Create directory for chatbot data.
 RUN mkdir /botdata
