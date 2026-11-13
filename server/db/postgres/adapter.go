@@ -160,9 +160,11 @@ func (a *adapter) Open(jsonconfig json.RawMessage) error {
 	err = a.db.Ping(ctx)
 	if isMissingDb(err) {
 		// Missing DB is OK if we are initializing the database.
-		// Since tinode DB does not exist, connect without specifying the DB name.
+		// Since tinode DB does not exist, connect to the default "postgres" DB.
++		// An empty name would make PostgreSQL fall back to a DB named after the user,
++		// which usually does not exist. CreateDb uses "postgres" as well.
 		a.db.Close()
-		a.poolConfig.ConnConfig.Database = ""
+		a.poolConfig.ConnConfig.Database = "postgres"
 		a.db, err = pgxpool.NewWithConfig(ctx, a.poolConfig)
 		if err != nil {
 			return err
