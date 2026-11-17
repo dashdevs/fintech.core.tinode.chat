@@ -198,6 +198,7 @@ COPY docker/tinode/entrypoint.sh .
 COPY --from=builder /out/ .
 
 # Web client. The server exits if the static content directory (--static_data) is missing.
+# Set EXT_STATIC_DIR=- at runtime to disable the web UI and serve only the API.
 COPY --from=webapp /static ./static
 
 # Create directory for chatbot data.
