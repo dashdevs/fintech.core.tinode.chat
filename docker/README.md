@@ -180,6 +180,11 @@ You can specify the following environment variables when issuing `docker run` co
 | Variable | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `ACC_GC_ENABLED`[^2] | bool | `false` | Enable/diable automatic deletion of unfinished account registrations. |
+| `AUTH_LOGICAL_NAMES`[^2] | string | `[]` | JSON array of logical auth names (`auth_config.logical_names`), e.g. `["basic:","anonymous:"]` disables password and anonymous login. |
+| `AUTH_REST_ALLOW_NEW_ACCOUNTS`[^2] | bool | `false` | Allow the REST authenticator to create new accounts. |
+| `AUTH_REST_SERVER_URL`[^2] | string |  | Absolute URL of the REST authenticator. The `rest` auth scheme is configured only when it is set. |
+| `AUTH_REST_USE_SEPARATE_ENDPOINTS`[^2] | bool | `false` | Use separate endpoints for each REST authenticator call. |
+| `AUTH_TOKEN_EXPIRE_IN`[^2] | int | `1209600` | Lifetime of authentication tokens, seconds. |
 | `AUTH_TOKEN_KEY`[^2] | string | `wfaY2RgF2S1OQI/ZlK+LS​rp1KB2jwAdGAIHQ7JZn+Kc=` | base64-encoded 32 random bytes used as salt for authentication tokens. |
 | `AWS_ACCESS_KEY_ID`[^2] | string |  | AWS Access Key ID when using `s3` media handler. |
 | `AWS_CORS_ORIGINS`[^2] | string | `["*"]` | Allowed origins ([CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin)) URL for downloads. Generally use your server URL and its aliases. |
