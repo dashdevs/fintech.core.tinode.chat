@@ -478,7 +478,7 @@ func main() {
 			if err := authhdl.Init(jsconf, name); err != nil {
 				logs.Err.Fatalln("Failed to init auth scheme", name+":", err)
 			}
-			tags, err := authhdl.RestrictedTags()
+			tags, err := restrictedTagsWithRetry(authhdl, name)
 			if err != nil {
 				logs.Err.Fatalln("Failed get restricted tag namespaces (prefixes)", name+":", err)
 			}
@@ -814,5 +814,24 @@ func main() {
 
 	if err = listenAndServe(config.Listen, mux, tlsConfig, signalHandler()); err != nil {
 		logs.Err.Fatal(err)
+	}
+}
+
+// The REST authenticator fetches restricted tags from its server at startup. Retry for a while
+// instead of exiting, so Tinode does not crash-loop while that server is still starting.
+var (
+	authStartupRetryTimeout  = 2 * time.Minute
+	authStartupRetryInterval = 2 * time.Second
+)
+
+func restrictedTagsWithRetry(authhdl auth.AuthHandler, name string) ([]string, error) {
+	deadline := time.Now().Add(authStartupRetryTimeout)
+	for {
+		tags, err := authhdl.RestrictedTags()
+		if err == nil || time.Now().After(deadline) {
+			return tags, err
+		}
+		logs.Warn.Println("Auth scheme", name+": failed to get restricted tag namespaces, retrying:", err)
+		time.Sleep(authStartupRetryInterval)
 	}
 }
