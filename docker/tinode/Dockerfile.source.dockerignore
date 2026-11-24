@@ -1,0 +1,15 @@
+# Applies only to builds with -f docker/tinode/Dockerfile.source (repo root context).
+.git
+.github
+docs
+loadtest
+monitoring
+chatbot
+py_grpc
+tn-cli
+releases
+exporter
+docker/chatbot
+docker/exporter
+docker/docker-compose
+**/*.md

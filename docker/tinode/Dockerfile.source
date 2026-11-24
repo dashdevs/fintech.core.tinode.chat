@@ -1,0 +1,58 @@
+# Builds the Tinode server image FROM SOURCE of this repository for multiple
+# architectures (linux/amd64, linux/arm64).
+#
+# The runtime image itself (ENV defaults, packages, entrypoint, healthcheck, web client)
+# is NOT defined here: it comes from the unmodified upstream ./Dockerfile, which is passed
+# in as the named build context "base". This file only compiles the fork's code and puts
+# the resulting binaries on top of it, so upstream changes to ./Dockerfile are picked up
+# automatically.
+#
+# Build with buildx bake from the repository root (see docker-bake.hcl):
+#
+# $ TARGET_DB=postgres docker buildx bake
+#
+# Equivalent manual build (base must be built for the same platforms):
+#
+# $ docker buildx build --platform linux/amd64,linux/arm64 \
+#	-f docker/tinode/Dockerfile.source --build-context base=docker-image://<upstream image> \
+#	--build-arg TARGET_DB=postgres -t tinode-postgres .
+
+# Go binaries are cross-compiled natively on the build host (no QEMU emulation).
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGET_DB=mysql
+ARG BUILDSTAMP=unknown
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+COPY . .
+
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+	set -eux; \
+	if [ "$TARGET_DB" = "alldbs" ]; then tags="mysql mongodb rethinkdb postgres"; else tags="$TARGET_DB"; fi; \
+	export CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH; \
+	mkdir -p /out/templ; \
+	go build -trimpath -ldflags "-s -w -X main.buildstamp=${BUILDSTAMP}" -tags "$tags" -o /out/tinode ./server; \
+	go build -trimpath -ldflags "-s -w" -tags "$tags" -o /out/init-db ./tinode-db; \
+	go build -trimpath -ldflags "-s -w" -o /out/keygen ./keygen; \
+	cp server/tinode.conf /out/; \
+	cp server/templ/*.templ /out/templ/; \
+	cp tinode-db/data.json tinode-db/*.jpg tinode-db/credentials.sh /out/
+
+# Upstream image: unpacked release archive (amd64 binaries, web client in ./static)
+# plus config.template and entrypoint.sh. Our binaries and support files overwrite
+# the ones from the archive; the web client is kept as is.
+FROM base
+
+# Version of this fork. Named differently from upstream's VERSION on purpose: an ENV
+# inherited from the base image would shadow a build ARG with the same name.
+ARG APP_VERSION
+ENV VERSION=$APP_VERSION
+LABEL version=$APP_VERSION
+
+COPY --from=builder /out/ /opt/tinode/
