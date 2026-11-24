@@ -69,18 +69,23 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
+      # docker-bake.hcl builds the upstream docker/tinode/Dockerfile as the base and
+      # docker/tinode/Dockerfile.source on top of it.
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/bake-action@v6
+        env:
+          TARGET_DB: ${{ matrix.db }}
+          VERSION: ${{ steps.info.outputs.version }}
+          BUILDSTAMP: ${{ steps.info.outputs.buildstamp }}
         with:
-          context: .
-          file: docker/tinode/Dockerfile.source
-          platforms: linux/amd64,linux/arm64
+          source: .
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta.outputs.bake-file }}
+          targets: tinode
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TARGET_DB=${{ matrix.db }}
-            VERSION=${{ steps.info.outputs.version }}
-            BUILDSTAMP=${{ steps.info.outputs.buildstamp }}
-          cache-from: type=gha,scope=tinode-${{ matrix.db }}
-          cache-to: type=gha,mode=max,scope=tinode-${{ matrix.db }}
+          set: |
+            upstream.cache-from=type=gha,scope=upstream-${{ matrix.db }}
+            upstream.cache-to=type=gha,mode=max,scope=upstream-${{ matrix.db }}
+            tinode.cache-from=type=gha,scope=tinode-${{ matrix.db }}
+            tinode.cache-to=type=gha,mode=max,scope=tinode-${{ matrix.db }}
