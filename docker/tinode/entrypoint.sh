@@ -56,6 +56,7 @@ fi
 
 # If external static dir is defined, use it.
 # Otherwise, fall back to "./static".
+# EXT_STATIC_DIR="-" disables the web UI: only the API (WebSocket, long polling, files) is served.
 if [ ! -z "$EXT_STATIC_DIR" ] ; then
 	STATIC_DIR=$EXT_STATIC_DIR
 else
@@ -66,6 +67,9 @@ fi
 if [ "$UPGRADE_DB" = "true" ] ; then
 	SAMPLE_DATA=
 fi
+
+# Files below are written into the web UI directory; skip them when the UI is disabled.
+if [ "$STATIC_DIR" != "-" ] ; then
 
 # If push notifications are enabled, generate client-side firebase config file.
 if [ ! -z "$FCM_PUSH_ENABLED" ] || [ ! -z "$TNPG_PUSH_ENABLED" ] ; then
@@ -113,6 +117,8 @@ if [ ! -z "$IOS_UNIV_LINKS_APP_ID" ] ; then
 }
 EOM
 fi
+
+fi # STATIC_DIR != "-"
 
 # Wait for database if needed.
 if [ ! -z "$WAIT_FOR" ] ; then
