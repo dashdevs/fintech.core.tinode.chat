@@ -85,6 +85,17 @@ else
 	echo "" > $STATIC_DIR/firebase-init.js
 fi
 
+# The bundled web app has the API key for the default API_KEY_SALT compiled in.
+# Replace it with the key derived from the actual salt, otherwise the server rejects
+# the web app's WebSocket connections with 403.
+WEBAPP_DEFAULT_API_KEY="AQEAAAABAAD_rAp4DJh05a1HAwFT3A6K"
+WEBAPP_API_KEY=$(./keygen -salt "$API_KEY_SALT" | sed -n 's/^API key v1 seq1 \[ordinary\]: //p')
+if [ -n "$WEBAPP_API_KEY" ] ; then
+	grep -rl --include='*.js' "$WEBAPP_DEFAULT_API_KEY" $STATIC_DIR 2>/dev/null | while read -r f ; do
+		sed -i "s/$WEBAPP_DEFAULT_API_KEY/$WEBAPP_API_KEY/g" "$f"
+	done
+fi
+
 if [ ! -z "$IOS_UNIV_LINKS_APP_ID" ] ; then
 	# Write config to $STATIC_DIR/apple-app-site-association config file.
 	# See https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html for details.
