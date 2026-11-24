@@ -43,6 +43,27 @@ else
 		WEBRTC_ENABLED=true
 	fi
 
+	# Auth. AUTH_LOGICAL_NAMES is a JSON array, e.g. '["basic:","anonymous:"]' disables
+	# password and anonymous login.
+	if [ -z "$AUTH_LOGICAL_NAMES" ] ; then
+		AUTH_LOGICAL_NAMES='[]'
+	fi
+	if [ -z "$AUTH_TOKEN_EXPIRE_IN" ] ; then
+		AUTH_TOKEN_EXPIRE_IN=1209600
+	fi
+
+	# REST authenticator is configured only when the URL is set: Tinode requires an absolute server_url.
+	AUTH_REST_CONFIG=
+	if [ ! -z "$AUTH_REST_SERVER_URL" ] ; then
+		if [ "$AUTH_REST_ALLOW_NEW_ACCOUNTS" != "true" ] ; then
+			AUTH_REST_ALLOW_NEW_ACCOUNTS=false
+		fi
+		if [ "$AUTH_REST_USE_SEPARATE_ENDPOINTS" != "true" ] ; then
+			AUTH_REST_USE_SEPARATE_ENDPOINTS=false
+		fi
+		AUTH_REST_CONFIG="\"rest\": {\"server_url\": \"$AUTH_REST_SERVER_URL\", \"allow_new_accounts\": $AUTH_REST_ALLOW_NEW_ACCOUNTS, \"use_separate_endpoints\": $AUTH_REST_USE_SEPARATE_ENDPOINTS},"
+	fi
+
 	# Generate a new 'working.config' from template and environment
 	while IFS='' read -r line || [[ -n $line ]] ; do
 		while [[ "$line" =~ (\$[A-Z_][A-Z_0-9]*) ]] ; do
