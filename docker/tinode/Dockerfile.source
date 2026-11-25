@@ -56,3 +56,18 @@ ENV VERSION=$APP_VERSION
 LABEL version=$APP_VERSION
 
 COPY --from=builder /out/ /opt/tinode/
+
+# Run as an unprivileged user. It owns only what the entrypoint writes at runtime: working.config and
+# init-db-stdout.txt in /opt/tinode, firebase-init.js and apple-app-site-association in the web client
+# directory, /botdata (sample data) and /var/log, where the entrypoint sends the server's stderr to
+# tinode.log (the Helm chart replaces that file with a link to the container's stderr, which needs
+# write access to the directory). Binaries and the web client stay read-only for it.
+RUN set -eux; \
+	addgroup -S -g 10001 tinode; \
+	adduser -S -D -H -u 10001 -G tinode -h /opt/tinode tinode; \
+	chown tinode:tinode /opt/tinode /opt/tinode/static /botdata /var/log; \
+	for f in firebase-init.js apple-app-site-association; do \
+		if [ -e "/opt/tinode/static/$f" ]; then chown tinode:tinode "/opt/tinode/static/$f"; fi; \
+	done
+
+USER 10001
