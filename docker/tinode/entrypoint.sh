@@ -43,6 +43,27 @@ else
 		WEBRTC_ENABLED=true
 	fi
 
+	# Auth. AUTH_LOGICAL_NAMES is a JSON array, e.g. '["basic:","anonymous:"]' disables
+	# password and anonymous login.
+	if [ -z "$AUTH_LOGICAL_NAMES" ] ; then
+		AUTH_LOGICAL_NAMES='[]'
+	fi
+	if [ -z "$AUTH_TOKEN_EXPIRE_IN" ] ; then
+		AUTH_TOKEN_EXPIRE_IN=1209600
+	fi
+
+	# REST authenticator is configured only when the URL is set: Tinode requires an absolute server_url.
+	AUTH_REST_CONFIG=
+	if [ ! -z "$AUTH_REST_SERVER_URL" ] ; then
+		if [ "$AUTH_REST_ALLOW_NEW_ACCOUNTS" != "true" ] ; then
+			AUTH_REST_ALLOW_NEW_ACCOUNTS=false
+		fi
+		if [ "$AUTH_REST_USE_SEPARATE_ENDPOINTS" != "true" ] ; then
+			AUTH_REST_USE_SEPARATE_ENDPOINTS=false
+		fi
+		AUTH_REST_CONFIG="\"rest\": {\"server_url\": \"$AUTH_REST_SERVER_URL\", \"allow_new_accounts\": $AUTH_REST_ALLOW_NEW_ACCOUNTS, \"use_separate_endpoints\": $AUTH_REST_USE_SEPARATE_ENDPOINTS},"
+	fi
+
 	# Generate a new 'working.config' from template and environment
 	while IFS='' read -r line || [[ -n $line ]] ; do
 		while [[ "$line" =~ (\$[A-Z_][A-Z_0-9]*) ]] ; do
@@ -56,6 +77,7 @@ fi
 
 # If external static dir is defined, use it.
 # Otherwise, fall back to "./static".
+# EXT_STATIC_DIR="-" disables the web UI: only the API (WebSocket, long polling, files) is served.
 if [ ! -z "$EXT_STATIC_DIR" ] ; then
 	STATIC_DIR=$EXT_STATIC_DIR
 else
@@ -66,6 +88,9 @@ fi
 if [ "$UPGRADE_DB" = "true" ] ; then
 	SAMPLE_DATA=
 fi
+
+# Files below are written into the web UI directory; skip them when the UI is disabled.
+if [ "$STATIC_DIR" != "-" ] ; then
 
 # If push notifications are enabled, generate client-side firebase config file.
 if [ ! -z "$FCM_PUSH_ENABLED" ] || [ ! -z "$TNPG_PUSH_ENABLED" ] ; then
@@ -85,6 +110,17 @@ else
 	echo "" > $STATIC_DIR/firebase-init.js
 fi
 
+# The bundled web app has the API key for the default API_KEY_SALT compiled in.
+# Replace it with the key derived from the actual salt, otherwise the server rejects
+# the web app's WebSocket connections with 403.
+WEBAPP_DEFAULT_API_KEY="AQEAAAABAAD_rAp4DJh05a1HAwFT3A6K"
+WEBAPP_API_KEY=$(./keygen -salt "$API_KEY_SALT" | sed -n 's/^API key v1 seq1 \[ordinary\]: //p')
+if [ -n "$WEBAPP_API_KEY" ] ; then
+	grep -rl --include='*.js' "$WEBAPP_DEFAULT_API_KEY" $STATIC_DIR 2>/dev/null | while read -r f ; do
+		sed -i "s/$WEBAPP_DEFAULT_API_KEY/$WEBAPP_API_KEY/g" "$f"
+	done
+fi
+
 if [ ! -z "$IOS_UNIV_LINKS_APP_ID" ] ; then
 	# Write config to $STATIC_DIR/apple-app-site-association config file.
 	# See https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/UniversalLinks.html for details.
@@ -102,6 +138,8 @@ if [ ! -z "$IOS_UNIV_LINKS_APP_ID" ] ; then
 }
 EOM
 fi
+
+fi # STATIC_DIR != "-"
 
 # Wait for database if needed.
 if [ ! -z "$WAIT_FOR" ] ; then

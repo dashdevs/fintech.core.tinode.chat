@@ -50,17 +50,18 @@
 	},
 
 	"auth_config": {
-		"logical_names": [],
+		"logical_names": $AUTH_LOGICAL_NAMES,
 		"basic": {
 			"add_to_tags": true,
 			"min_login_length": 3,
 			"min_password_length": 6
 		},
 		"token": {
-			"expire_in": 1209600,
+			"expire_in": $AUTH_TOKEN_EXPIRE_IN,
 			"serial_num": 1,
 			"key": "$AUTH_TOKEN_KEY"
 		},
+		$AUTH_REST_CONFIG
 		"code": {
 			"expire_in": 900,
 			"max_retries": 3,

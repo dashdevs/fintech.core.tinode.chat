@@ -160,9 +160,11 @@ func (a *adapter) Open(jsonconfig json.RawMessage) error {
 	err = a.db.Ping(ctx)
 	if isMissingDb(err) {
 		// Missing DB is OK if we are initializing the database.
-		// Since tinode DB does not exist, connect without specifying the DB name.
+		// Since tinode DB does not exist, connect to the default "postgres" DB.
+		// An empty name would make PostgreSQL fall back to a DB named after the user,
+		// which usually does not exist. CreateDb uses "postgres" as well.
 		a.db.Close()
-		a.poolConfig.ConnConfig.Database = ""
+		a.poolConfig.ConnConfig.Database = "postgres"
 		a.db, err = pgxpool.NewWithConfig(ctx, a.poolConfig)
 		if err != nil {
 			return err
@@ -320,8 +322,17 @@ func (a *adapter) CreateDb(reset bool) error {
 		}
 	}
 
-	if _, err = a.db.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s WITH ENCODING utf8;", a.dbName)); err != nil {
+	// The DB may already exist without a schema, e.g. when a previous init was interrupted
+	// right after CREATE DATABASE (the schema itself is created in a single transaction).
+	var dbExists bool
+	if err = a.db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname=$1)",
+		a.dbName).Scan(&dbExists); err != nil {
 		return err
+	}
+	if !dbExists {
+		if _, err = a.db.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s WITH ENCODING utf8;", a.dbName)); err != nil {
+			return err
+		}
 	}
 
 	a.poolConfig.ConnConfig.Database = a.dbName

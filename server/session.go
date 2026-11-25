@@ -444,22 +444,48 @@ func (s *Session) dispatchRaw(raw []byte) {
 		return
 	}
 
-	toLog := raw
-	truncated := ""
-	if len(raw) > 512 {
-		toLog = raw[:512]
-		truncated = "<...>"
-	}
-	logs.Info.Printf("in: '%s%s' sid='%s' uid='%s'", toLog, truncated, s.sid, s.uid)
-
+	// Packets are not logged as is: they carry access tokens ({login}, {acc}) and message text ({pub}).
 	if err := json.Unmarshal(raw, &msg); err != nil {
 		// Malformed message
+		logs.Info.Printf("in: malformed, %d bytes sid='%s' uid='%s'", len(raw), s.sid, s.uid)
 		logs.Warn.Println("s.dispatch", err, s.sid)
 		s.queueOut(ErrMalformed("", "", now))
 		return
 	}
+	logs.Info.Printf("in: %s sid='%s' uid='%s'", packetSummary(&msg), s.sid, s.uid)
 
 	s.dispatch(&msg)
+}
+
+// packetSummary describes a client packet for logging without its content
+// (credentials, message text).
+func packetSummary(msg *ClientComMessage) string {
+	var what, id, topic string
+	switch {
+	case msg.Hi != nil:
+		what, id = "hi", msg.Hi.Id
+	case msg.Acc != nil:
+		what, id = "acc", msg.Acc.Id
+	case msg.Login != nil:
+		what, id = "login:"+msg.Login.Scheme, msg.Login.Id
+	case msg.Sub != nil:
+		what, id, topic = "sub", msg.Sub.Id, msg.Sub.Topic
+	case msg.Leave != nil:
+		what, id, topic = "leave", msg.Leave.Id, msg.Leave.Topic
+	case msg.Pub != nil:
+		what, id, topic = "pub", msg.Pub.Id, msg.Pub.Topic
+	case msg.Get != nil:
+		what, id, topic = "get", msg.Get.Id, msg.Get.Topic
+	case msg.Set != nil:
+		what, id, topic = "set", msg.Set.Id, msg.Set.Topic
+	case msg.Del != nil:
+		what, id, topic = "del", msg.Del.Id, msg.Del.Topic
+	case msg.Note != nil:
+		what, topic = "note", msg.Note.Topic
+	default:
+		what = "unknown"
+	}
+	return fmt.Sprintf("{%s} id='%s' topic='%s'", what, id, topic)
 }
 
 func (s *Session) dispatch(msg *ClientComMessage) {

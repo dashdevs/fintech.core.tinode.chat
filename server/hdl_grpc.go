@@ -58,9 +58,11 @@ func (*grpcNodeServer) MessageLoop(stream pbx.Node_MessageLoopServer) error {
 			logs.Err.Println("grpc: recv", sess.sid, err)
 			return err
 		}
-		logs.Info.Println("grpc in:", truncateStringIfTooLong(in.String()), sess.sid)
+		msg := pbCliDeserialize(in)
+		// The packet is not logged as is: it carries access tokens and message text.
+		logs.Info.Println("grpc in:", packetSummary(msg), sess.sid)
 		statsInc("IncomingMessagesGrpcTotal", 1)
-		sess.dispatch(pbCliDeserialize(in))
+		sess.dispatch(msg)
 
 		sess.lock.Lock()
 		if sess.grpcnode == nil {
